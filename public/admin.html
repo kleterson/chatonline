@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Administrativo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #090d16;
+            color: #fff;
+            padding: 20px;
+            margin: 0;
+        }
+        h2 { color: #38bdf8; text-align: center; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+            min-width: 400px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
+        th { color: #38bdf8; }
+        
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .online { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .offline { background-color: #ef4444; }
+
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px 0;
+            background: #000;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 8px 15px;
+            background: #10b981;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover { background: #059669; }
+        .btn-danger { background: #ef4444; padding: 5px 10px; font-size: 12px; }
+        .btn-danger:hover { background: #dc2626; }
+        
+        .chat-monitor { margin-top: 20px; background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+        .messages-log { height: 200px; background: #000; border-radius: 8px; padding: 10px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body>
+    <h2>Painel de Gerenciamento do Admin</h2>
+
+    <div class="container">
+        <!-- Configurações -->
+        <div class="card">
+            <h3>Configurações do Site (URLs)</h3>
+            <label>Logo URL:</label>
+            <input type="text" id="logoUrlInput">
+            <label>Banner URL:</label>
+            <input type="text" id="bannerUrlInput">
+            <label>Anúncio URL:</label>
+            <input type="text" id="adUrlInput">
+            <button onclick="saveConfig()">Salvar Alterações de Layout</button>
+
+            <h3 style="margin-top: 25px;">Palavras Bloqueadas (separadas por vírgula)</h3>
+            <input type="text" id="wordsInput">
+            <button onclick="saveWords()">Atualizar Censura</button>
+        </div>
+
+        <!-- Usuários Cadastrados (Online / Offline) -->
+        <div class="card">
+            <h3>Usuários Cadastrados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Nome</th>
+                        <th>Idade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="chat-monitor">
+        <h3>Monitor de Conversas em Tempo Real</h3>
+        <div class="messages-log" id="messagesLogBox"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.emit('get_initial_config');
+
+        socket.on('config_updated', (config) => {
+            document.getElementById('logoUrlInput').value = config.logoUrl;
+            document.getElementById('bannerUrlInput').value = config.bannerUrl;
+            document.getElementById('adUrlInput').value = config.adUrl;
+        });
+
+        function saveConfig() {
+            const logoUrl = document.getElementById('logoUrlInput').value;
+            const bannerUrl = document.getElementById('bannerUrlInput').value;
+            const adUrl = document.getElementById('adUrlInput').value;
+            socket.emit('admin_update_config', { logoUrl, bannerUrl, adUrl });
+            alert('Layout atualizado com sucesso!');
+        }
+
+        function saveWords() {
+            const rawWords = document.getElementById('wordsInput').value;
+            const wordsArray = rawWords.split(',').map(w => w.trim()).filter(w => w.length > 0);
+            socket.emit('admin_update_words', wordsArray);
+            alert('Lista de censura atualizada!');
+        }
+
+        socket.on('words_updated', (words) => {
+            document.getElementById('wordsInput').value = words.join(', ');
+        });
+
+        // Atualiza a tabela com todos os usuários cadastrados e seus status (Online/Offline)
+        socket.on('update_admin_data', (data) => {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+
+            data.users.forEach(user => {
+                const tr = document.createElement('tr');
+                
+                const dotClass = user.isOnline ? 'online' : 'offline';
+                const statusText = user.isOnline ? 'Online' : 'Offline';
+
+                tr.innerHTML = `
+                    <td><span class="status-dot ${dotClass}" title="${statusText}"></span> ${statusText}</td>
+                    <td>${user.nome}</td>
+                    <td>${user.idade}</td>
+                    <td>
+                        ${user.isOnline && user.status !== 'bloqueado' ? `<button class="btn-danger" onclick="blockUser('${user.id}')">Bloquear</button>` : 'N/A'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Log de mensagens
+            const logBox = document.getElementById('messagesLogBox');
+            logBox.innerHTML = '';
+            data.messagesLog.forEach(msg => {
+                const p = document.createElement('p');
+                p.style.margin = '4px 0';
+                p.innerHTML = `<strong>[${msg.time}] ${msg.senderName}:</strong> ${msg.text}`;
+                logBox.appendChild(p);
+            });
+            logBox.scrollTop = logBox.scrollHeight;
+        });
+
+        function blockUser(userId) {
+            if (confirm('Deseja realmente bloquear este usuário?')) {
+                socket.emit('admin_block_user', userId);
+            }
+        }
+    </script>
+</body>
+</html>

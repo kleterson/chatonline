@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Principal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #090d16;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header img.logo { height: 40px; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .banner-container { width: 100%; max-height: 100px; overflow: hidden; background: #000; text-align: center; }
+        .banner-container img { width: 100%; object-fit: cover; max-height: 100px; }
+        
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 300px; background: rgba(15, 23, 42, 0.5); border-right: 1px solid rgba(255,255,255,0.1); padding: 15px; overflow-y: auto; }
+        
+        .content-area { flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); padding: 20px; overflow-y: auto; }
+        
+        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; }
+        .user-card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px; position: relative; }
+        .user-card img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .user-info { flex: 1; }
+        .user-info h4 { margin: 0 0 5px 0; font-size: 16px; }
+        
+        .status-container { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 8px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .online { background-color: #22c55e; box-shadow: 0 0 6px #22c55e; }
+        .offline { background-color: #ef4444; }
+
+        .msg-notification {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        .red-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #fff;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        button { padding: 8px 12px; background: #0284c7; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; font-size: 12px; }
+        button:hover { background: #0369a1; }
+        .btn-disabled { background: #334155 !important; cursor: not-allowed; }
+
+        .chat-box-container { display: none; flex-direction: column; height: 100%; }
+        .chat-header { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+        .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: rgba(0,0,0,0.4); border-radius: 8px; }
+        
+        .msg { background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px; max-width: 60%; word-break: break-word; font-size: 14px; }
+        .msg.mine { background: #0284c7; align-self: flex-end; }
+        .msg img.chat-img { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; margin-top: 5px; object-fit: cover; }
+        
+        .chat-input-area { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+        .chat-input-area input[type="text"] { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: #000; color: #fff; }
+        
+        .btn-attach { background: #10b981; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        .btn-attach:hover { background: #059669; }
+
+        .typing-indicator { display: none; font-size: 12px; color: #38bdf8; font-style: italic; margin-top: 5px; align-items: center; gap: 4px; }
+        .typing-dots span {
+            height: 6px; width: 6px; background-color: #38bdf8; border-radius: 50%; display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        .ad-banner { text-align: center; background: #111; padding: 5px; }
+        .ad-banner img { max-height: 50px; }
+        .photo-update-box { margin-top: 15px; }
+        .btn-edit-photo { width: 100%; padding: 8px; background: #10b981; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; text-align: center; display: block; }
+    </style>
+</head>
+<body>
+    <header>
+        <img id="siteLogo" class="logo" src="" alt="Logo">
+        <h3 id="userNameDisplay"></h3>
+        <div class="header-actions">
+            <button onclick="clearMyChat()" style="background: #ef4444;">Limpar Conversa</button>
+            <button onclick="logout()" style="background: #64748b;">Sair</button>
+        </div>
+    </header>
+
+    <div class="banner-container">
+        <img id="siteBanner" src="" alt="Banner">
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <h4>Seu Perfil & Info</h4>
+            <div id="profileInfo"></div>
+            <div class="photo-update-box">
+                <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+                <button class="btn-edit-photo" onclick="document.getElementById('fileInput').click()">Editar Foto</button>
+            </div>
+            <button onclick="backToUsersList()" style="width: 100%; margin-top: 15px; background: #475569;">Voltar para Lista de Usuários</button>
+        </div>
+        
+        <div class="content-area" id="contentArea">
+            <div id="usersListView">
+                <h3>Usuários Cadastrados na Comunidade</h3>
+                <div class="users-grid" id="usersGrid"></div>
+            </div>
+
+            <div id="privateChatView" class="chat-box-container">
+                <div class="chat-header">
+                    <img id="chatTargetPhoto" src="" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                    <div>
+                        <h4 id="chatTargetName" style="margin:0;"></h4>
+                        <span id="chatTargetStatus" style="font-size: 11px; color: #22c55e;">Online</span>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessagesBox"></div>
+
+                <div class="typing-indicator" id="typingIndicator">
+                    <span id="typingName"></span> está digitando
+                    <div class="typing-dots"><span></span><span></span><span></span></div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="file" id="chatImageInput" accept="image/*" style="display: none;" onchange="handleChatImageSelect(event)">
+                    <button class="btn-attach" onclick="document.getElementById('chatImageInput').click()" title="Enviar Foto">📷</button>
+                    
+                    <input type="text" id="privateMsgInput" placeholder="Digite sua mensagem..." oninput="handleTypingInput()" onblur="handleTypingStop()" onkeypress="if(event.key === 'Enter') sendPrivateMessage()">
+                    <button onclick="sendPrivateMessage()">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ad-banner">
+        <img id="siteAd" src="" alt="Anúncio">
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentUser = JSON.parse(localStorage.getItem('chat_user'));
+        let currentTargetUser = null;
+        let typingTimeout = null;
+        
+        let unreadMessages = JSON.parse(localStorage.getItem(`unread_${currentUser?.nome}`)) || {};
+        let chatHistory = JSON.parse(localStorage.getItem(`history_${currentUser?.nome}`)) || {};
+
+        if (!currentUser) {
+            window.location.href = 'index.html';
+        } else {
+            socket.emit('user_connected_chat', currentUser);
+        }
+
+        function renderProfile() {
+            document.getElementById('userNameDisplay').innerText = `Bem-vindo, ${currentUser.nome}`;
+            document.getElementById('profileInfo').innerHTML = `
+                <img src="${currentUser.foto}" style="width: 100%; border-radius: 10px; object-fit: cover; height: 150px;">
+                <p><strong>Idade:</strong> ${currentUser.idade}</p>
+                <p><strong>Endereço:</strong> ${currentUser.endereco}</p>
+                <p><strong>Cor:</strong> ${currentUser.cor}</p>
+                <p><strong>Altura/Peso:</strong> ${currentUser.alturaPeso}</p>
+                <p><strong>Sobre:</strong> ${currentUser.observacao}</p>
+            `;
+        }
+
+        renderProfile();
+
+        socket.emit('get_initial_config');
+        socket.on('config_updated', (config) => {
+            document.getElementById('siteLogo').src = config.logoUrl;
+            document.getElementById('siteBanner').src = config.bannerUrl;
+            document.getElementById('siteAd').src = config.adUrl;
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentUser.foto = e.target.result;
+                localStorage.setItem('chat_user', JSON.stringify(currentUser));
+                renderProfile();
+                socket.emit('update_photo', currentUser.foto);
+                alert('Foto de perfil atualizada!');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleChatImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file || !currentTargetUser) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Image = e.target.result;
+                socket.emit('send_private_message', {
+                    targetSocketId: currentTargetUser.id,
+                    text: '',
+                    image: base64Image,
+                    targetName: currentTargetUser.nome
+                });
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        socket.on('update_users_list', (usersList) => {
+            const grid = document.getElementById('usersGrid');
+            grid.innerHTML = '';
+
+            usersList.forEach(user => {
+                if (user.nome.toLowerCase() === currentUser.nome.toLowerCase()) return;
+
+                const isOnline = user.isOnline;
+                const dotClass = isOnline ? 'online' : 'offline';
+                const statusLabel = isOnline ? 'Online' : 'Offline';
+                const hasUnread = unreadMessages[user.nome];
+
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                card.innerHTML = `
+                    ${hasUnread ? '<div class="msg-notification"><span class="red-dot"></span> 💬 Nova Msg</div>' : ''}
+                    <img src="${user.foto}" alt="Foto">
+                    <div class="user-info">
+                        <h4>${user.nome}</h4>
+                        <div class="status-container">
+                            <span class="status-dot ${dotClass}"></span>
+                            <span>${statusLabel}</span>
+                        </div>
+                        <button class="${!isOnline && !chatHistory[user.nome]?.length ? 'btn-disabled' : ''}" onclick='openPrivateChat(${JSON.stringify(user)})'>
+                            Enviar Mensagem
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        });
+
+        function openPrivateChat(targetUser) {
+            currentTargetUser = targetUser;
+            
+            delete unreadMessages[targetUser.nome];
+            localStorage.setItem(`unread_${currentUser.nome}`, JSON.stringify(unreadMessages));
+
+            document.getElementById('usersListView').style.display = 'none';
+            document.getElementById('privateChatView').style.display = 'flex';
+
+            document.getElementById('chatTargetPhoto').src = targetUser.foto;
+            document.getElementById('chatTargetName').innerText = targetUser.nome;
+            
+            const box = document.getElementById('chatMessagesBox');
+            box.innerHTML = '';
+            
+            if (chatHistory[targetUser.nome]) {
+                chatHistory[targetUser.nome].forEach(msg => {
+                    appendMessageToDOM(msg);
+                });
+            }
+        }
+
+        function backToUsersList() {
+            currentTargetUser = null;
+            document.getElementById('privateChatView').style.display = 'none';
+            document.getElementById('usersListView').style.display = 'block';
+            socket.emit('get_initial_config'); 
+        }
+
+        function sendPrivateMessage() {
+            const input = document.getElementById('privateMsgInput');
+            const text = input.value.trim();
+            if (!text || !currentTargetUser) return;
+
+            socket.emit('send_private_message', {
+                targetSocketId: currentTargetUser.id,
+                text: text,
+                image: null,
+                targetName: currentTargetUser.nome
+            });
+
+            input.value = '';
+            handleTypingStop();
+        }
+
+        function handleTypingInput() {
+            if (!currentTargetUser) return;
+            socket.emit('typing', { targetSocketId: currentTargetUser.id, senderName: currentUser.nome });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                handleTypingStop();
+            }, 2000);
+        }
+
+        function handleTypingStop() {
+            if (!currentTargetUser) return;
+            socket.emit('stop_typing', { targetSocketId: currentTargetUser.id });
+        }
+
+        socket.on('display_typing', (data) => {
+            if (currentTargetUser && currentTargetUser.nome === data.senderName) {
+                const indicator = document.getElementById('typingIndicator');
+                document.getElementById('typingName').innerText = data.senderName;
+                indicator.style.display = 'flex';
+            }
+        });
+
+        socket.on('hide_typing', () => {
+            document.getElementById('typingIndicator').style.display = 'none';
+        });
+
+        socket.on('receive_private_message', (data) => {
+            const isMine = data.senderId === socket.id;
+            const otherUser = isMine ? currentTargetUser?.nome : data.senderName;
+            
+            if (!otherUser) return;
+
+            if (!chatHistory[otherUser]) {
+                chatHistory[otherUser] = [];
+            }
+            chatHistory[otherUser].push(data);
+            localStorage.setItem(`history_${currentUser.nome}`, JSON.stringify(chatHistory));
+
+            if (currentTargetUser && currentTargetUser.nome === otherUser) {
+                appendMessageToDOM(data);
+            } else {
+                unreadMessages[otherUser] = true;
+                localStorage.setItem(`unread_${currentUser.nome}`, JSON.stringify(unreadMessages));
+                socket.emit('get_initial_config');
+            }
+        });
+
+        function appendMessageToDOM(data) {
+            const box = document.getElementById('chatMessagesBox');
+            const div = document.createElement('div');
+            div.className = `msg ${data.senderId === socket.id ? 'mine' : ''}`;
+            
+            let contentHtml = `<strong>${data.senderName}</strong>: `;
+            if (data.text) {
+                contentHtml += `${data.text} `;
+            }
+            if (data.image) {
+                contentHtml += `<img src="${data.image}" class="chat-img" alt="Foto enviada">`;
+            }
+            contentHtml += `<span style="font-size:10px; opacity:0.6; display:block; margin-top:2px;">${data.time}</span>`;
+            
+            div.innerHTML = contentHtml;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function clearMyChat() {
+            if (currentTargetUser) {
+                if (confirm(`Deseja realmente limpar a conversa com ${currentTargetUser.nome}?`)) {
+                    delete chatHistory[currentTargetUser.nome];
+                    localStorage.setItem(`history_${currentUser.nome}`, JSON.stringify(chatHistory));
+                    document.getElementById('chatMessagesBox').innerHTML = '';
+                }
+            } else {
+                alert('Abra uma conversa privada para poder limpá-la.');
+            }
+        }
+
+        function logout() {
+            socket.emit('user_logout', currentUser?.nome);
+            localStorage.removeItem('chat_user');
+            window.location.href = 'index.html';
+        }
+
+        socket.on('user_blocked', () => {
+            alert('Você foi bloqueado pelo administrador.');
+            localStorage.removeItem('chat_user');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>
