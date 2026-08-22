@@ -42,6 +42,7 @@ function updateGlobalData() {
         };
     });
 
+    // Emite para todos os clientes conectados (incluindo painel admin)
     io.emit('update_users_list', publicUsersList);
     io.emit('update_admin_data', { users: publicUsersList, messagesLog });
 }
@@ -102,7 +103,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Mensagens Privadas com salvamento no log do painel
     socket.on('send_private_message', (data) => {
         const sender = users.find(u => u.id === socket.id);
         if (!sender || sender.status === 'bloqueado') return;
@@ -120,7 +120,6 @@ io.on('connection', (socket) => {
             time: new Date().toLocaleTimeString()
         };
 
-        // Adiciona ao log global e atualiza o painel de admin em tempo real
         messagesLog.push(msgData);
 
         if (data.targetSocketId) {
@@ -128,20 +127,8 @@ io.on('connection', (socket) => {
         }
         socket.emit('receive_private_message', msgData);
         
-        // Atualiza os dados do painel admin com as novas mensagens
+        // Garante que o log de mensagens seja enviado ao Admin
         updateGlobalData();
-    });
-
-    socket.on('typing', (data) => {
-        if (data.targetSocketId) {
-            io.to(data.targetSocketId).emit('display_typing', { senderName: data.senderName });
-        }
-    });
-
-    socket.on('stop_typing', (data) => {
-        if (data.targetSocketId) {
-            io.to(data.targetSocketId).emit('hide_typing');
-        }
     });
 
     socket.on('user_logout', (userName) => {
@@ -149,6 +136,11 @@ io.on('connection', (socket) => {
             users = users.filter(u => u.nome.toLowerCase() !== userName.toLowerCase());
             updateGlobalData();
         }
+    });
+
+    // Disconnect não remove o usuário para garantir que ele fique "Online" permanente
+    socket.on('disconnect', () => {
+        console.log(`Socket desconectado: ${socket.id}`);
     });
 
     socket.on('admin_block_user', (userId) => {
@@ -160,11 +152,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('admin_update_words', (newWordsArray) => {
-        blockedWords = newWordsArray;
-        socket.emit('words_updated', blockedWords);
-    });
-
     socket.on('admin_update_config', (newConfig) => {
         siteConfig = { ...siteConfig, ...newConfig };
         io.emit('config_updated', siteConfig);
@@ -173,10 +160,6 @@ io.on('connection', (socket) => {
     socket.on('get_initial_config', () => {
         socket.emit('config_updated', siteConfig);
         updateGlobalData();
-    });
-
-    socket.on('disconnect', () => {
-        console.log(`Socket desconectado: ${socket.id}`);
     });
 });
 
