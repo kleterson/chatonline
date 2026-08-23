@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let registeredUsers = []; 
 let users = []; 
-let messagesLog = []; 
+let messagesLog = []; // Histórico de mensagens persistente no servidor
 let blockedWords = ["porra", "merda", "caralho"]; 
 let siteConfig = {
     logoUrl: "https://via.placeholder.com/150x50?text=LOGO+3D",
@@ -87,6 +87,8 @@ io.on('connection', (socket) => {
         }
 
         updateGlobalData();
+        // Envia o histórico de mensagens atual para o cliente que acabou de se conectar
+        socket.emit('load_messages_history', messagesLog);
     });
 
     socket.on('login_account', (data) => {
@@ -116,13 +118,14 @@ io.on('connection', (socket) => {
         if (!sender || sender.status === 'bloqueado') return;
 
         const processedText = censorText(data.text);
-        const targetUser = users.find(u => u.id === data.targetSocketId);
+        const targetUser = users.find(u => u.id === data.targetSocketId || (u.nome && u.nome.toLowerCase() === data.targetName.toLowerCase()));
         const targetName = targetUser ? targetUser.nome : (data.targetName || 'Desconhecido');
 
         const msgData = {
             senderName: sender.nome,
             targetName: targetName,
             senderId: socket.id,
+            targetSocketId: targetUser ? targetUser.id : data.targetSocketId,
             text: processedText,
             image: data.image || null,
             time: new Date().toLocaleTimeString()
@@ -130,11 +133,18 @@ io.on('connection', (socket) => {
 
         messagesLog.push(msgData);
 
-        if (data.targetSocketId) {
-            io.to(data.targetSocketId).emit('receive_private_message', msgData);
+        if (targetUser && targetUser.id) {
+            io.to(targetUser.id).emit('receive_private_message', msgData);
         }
         socket.emit('receive_private_message', msgData);
         
+        updateGlobalData();
+    });
+
+    // Evento exclusivo para o Admin limpar as mensagens
+    socket.on('admin_clear_messages', () => {
+        messagesLog = [];
+        io.emit('messages_cleared');
         updateGlobalData();
     });
 
@@ -180,6 +190,7 @@ io.on('connection', (socket) => {
 
     socket.on('get_initial_config', () => {
         socket.emit('config_updated', siteConfig);
+        socket.emit('load_messages_history', messagesLog);
         updateGlobalData();
     });
 });
