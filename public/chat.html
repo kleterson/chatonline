@@ -116,7 +116,7 @@
     </header>
 
     <div class="main-container">
-        <!-- Barra Lateral de Perfil com o botão de três tracinhos adicionado -->
+        <!-- Barra Lateral de Perfil com o botão de três tracinhos -->
         <div class="sidebar-perfil" id="sidebarPerfil">
             <button class="menu-toggle-btn" onclick="togglePerfil()" title="Recolher/Expandir Perfil">
                 <span></span>
@@ -132,6 +132,7 @@
                 <div class="info-item"><strong>Endereço:</strong> <span id="perfilEndereco">--</span></div>
                 <div class="info-item"><strong>Cor:</strong> <span id="perfilCor">--</span></div>
                 <div class="info-item"><strong>Altura/Peso:</strong> <span id="perfilAlturaPeso">--</span></div>
+                <div class="info-item" style="margin-top: 15px;"><strong>Sobre:</strong> <br><span id="perfilObservacao">--</span></div>
             </div>
         </div>
 
@@ -145,7 +146,7 @@
     </div>
 
     <script>
-        // Função para abrir e fechar o perfil
+        // Função para abrir e fechar o perfil (três tracinhos)
         function togglePerfil() {
             const sidebar = document.getElementById('sidebarPerfil');
             sidebar.classList.toggle('recolhido');
@@ -162,15 +163,34 @@
             window.location.href = 'index.html';
         }
 
+        // Carrega os dados salvos do usuário logado e preenche o perfil automaticamente
         window.addEventListener('DOMContentLoaded', () => {
             const userStr = localStorage.getItem('chat_user');
             if(userStr) {
                 try {
                     const user = JSON.parse(userStr);
+                    
                     if(user.nome) {
                         document.getElementById('welcomeUser').innerText = 'Bem-vindo, ' + user.nome;
                     }
-                } catch(e) {}
+                    if(user.idade) {
+                        document.getElementById('perfilIdade').innerText = user.idade;
+                    }
+                    if(user.endereco) {
+                        document.getElementById('perfilEndereco').innerText = user.endereco;
+                    }
+                    if(user.cor) {
+                        document.getElementById('perfilCor').innerText = user.cor;
+                    }
+                    if(user.alturaPeso) {
+                        document.getElementById('perfilAlturaPeso').innerText = user.alturaPeso;
+                    }
+                    if(user.observacao) {
+                        document.getElementById('perfilObservacao').innerText = user.observacao;
+                    }
+                } catch(e) {
+                    console.error('Erro ao carregar dados do usuário', e);
+                }
             }
         });
     </script>
