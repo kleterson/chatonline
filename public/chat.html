@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Principal</title>
+    <!-- Importação do Socket.io do Servidor -->
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -38,11 +40,10 @@
             border-right: 1px solid rgba(255,255,255,0.1);
             padding: 20px;
             overflow-y: auto;
-            transition: width 0.3s ease, padding 0.3s ease, transform 0.3s ease;
+            transition: width 0.3s ease, padding 0.3s ease;
             position: relative;
         }
         
-        /* Botão dos três tracinhos (Hambúrguer) */
         .menu-toggle-btn {
             background: transparent;
             border: none;
@@ -63,11 +64,7 @@
             border-radius: 2px;
             transition: 0.3s;
         }
-        .menu-toggle-btn:hover span {
-            background-color: #ffffff;
-        }
 
-        /* Estado Recolhido */
         .sidebar-perfil.recolhido {
             width: 70px !important;
             padding: 20px 10px;
@@ -76,7 +73,6 @@
             display: none;
         }
 
-        /* Foto de Perfil Formato 3x4 (Vertical) */
         .perfil-card-img {
             width: 120px;
             height: 160px;
@@ -87,7 +83,6 @@
             border: 2px solid #38bdf8;
         }
 
-        /* Botão Editar Foto com Emoji */
         .btn-editar-foto {
             display: block;
             width: 100%;
@@ -102,18 +97,11 @@
             text-align: center;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
-            transition: 0.2s;
         }
-        .btn-editar-foto:hover {
-            opacity: 0.9;
-        }
+        .btn-editar-foto:hover { opacity: 0.9; }
+        #inputFotoFile { display: none; }
 
-        /* Input file oculto para galeria */
-        #inputFotoFile {
-            display: none;
-        }
-
-        /* Área de Chat / Comunidade */
+        /* Área de Comunidade / Usuários */
         .chat-area {
             flex: 1;
             background-color: #0b0f19;
@@ -122,50 +110,99 @@
             display: flex;
             flex-direction: column;
         }
-        
+
+        /* Lista de Usuários Estilo Cards */
+        .lista-usuarios-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .user-card {
+            background-color: #1e293b;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: 0.2s;
+        }
+        .user-card:hover {
+            border-color: #38bdf8;
+        }
+
+        .user-info-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #38bdf8;
+        }
+
+        /* Bolinha verde de online / cinza offline */
+        .status-dot {
+            position: absolute;
+            bottom: 2px;
+            left: 32px;
+            width: 12px;
+            height: 12px;
+            background-color: #94a3b8;
+            border-radius: 50%;
+            border: 2px solid #1e293b;
+        }
+        .status-dot.online {
+            background-color: #22c55e;
+        }
+
+        .user-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .btn-conversar {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+            transition: 0.2s;
+        }
+        .btn-conversar:hover {
+            opacity: 0.9;
+        }
+
         .info-item {
             margin-bottom: 10px;
             font-size: 14px;
             word-break: break-word;
         }
-        .info-item strong {
-            color: #38bdf8;
-        }
+        .info-item strong { color: #38bdf8; }
 
-        /* Modo Responsivo Automático para Celular (Estilo App) */
         @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
+            .main-container { flex-direction: column; }
             .sidebar-perfil {
                 width: 100% !important;
                 height: 60px;
                 padding: 10px 15px;
                 overflow: hidden;
                 border-bottom: 1px solid rgba(255,255,255,0.1);
-                border-right: none;
-                flex-shrink: 0;
             }
-            .sidebar-perfil.recolhido {
-                height: 60px !important;
-                width: 100% !important;
-            }
-            .sidebar-perfil:not(.recolhido) {
-                height: 65vh;
-                width: 100% !important;
-            }
-            .sidebar-perfil:not(.recolhido) .conteudo-perfil {
-                display: block;
-            }
-            .menu-toggle-btn {
-                position: absolute;
-                top: 15px;
-                right: 20px;
-            }
-            .chat-area {
-                flex: 1;
-                padding: 15px;
-            }
+            .sidebar-perfil.recolhido { height: 60px !important; }
+            .sidebar-perfil:not(.recolhido) { height: 60vh; }
         }
     </style>
 </head>
@@ -177,7 +214,6 @@
             <span id="welcomeUser">Bem-vindo, usuário</span>
         </div>
         <div>
-            <button onclick="limparConversa()" style="background:#ef4444; border:none; color:white; padding:8px 12px; border-radius:5px; cursor:pointer; margin-right: 5px; font-size: 13px;">Limpar</button>
             <button onclick="sair()" style="background:#334155; border:none; color:white; padding:8px 12px; border-radius:5px; cursor:pointer; font-size: 13px;">Sair</button>
         </div>
     </header>
@@ -185,7 +221,6 @@
     <div class="main-container">
         <!-- Barra Lateral de Perfil -->
         <div class="sidebar-perfil" id="sidebarPerfil">
-            <!-- Botão dos três tracinhos para abrir/fechar -->
             <button class="menu-toggle-btn" onclick="togglePerfil()" title="Recolher/Expandir Perfil">
                 <span></span>
                 <span></span>
@@ -195,10 +230,8 @@
             <div class="conteudo-perfil">
                 <h3 style="color: #38bdf8; margin-top:0;">Seu Perfil &amp; Info</h3>
                 
-                <!-- Foto em Formato 3x4 -->
                 <img src="" id="perfilFoto" class="perfil-card-img" alt="Foto 3x4" onerror="this.src='https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=500&auto=format&fit=crop&q=60'">
                 
-                <!-- Botão Editar Foto com Emoji de Lápis -->
                 <button class="btn-editar-foto" onclick="document.getElementById('inputFotoFile').click()">✏️ Editar Foto</button>
                 <input type="file" id="inputFotoFile" accept="image/*" onchange="atualizarFotoPerfil(event)">
 
@@ -210,79 +243,91 @@
             </div>
         </div>
 
-        <!-- Área de Chat e Usuários -->
+        <!-- Área de Comunidade e Lista de Usuários -->
         <div class="chat-area">
             <h2 style="color: #ffffff; margin-top:0; font-size: 20px;">Usuários Cadastrados na Comunidade</h2>
-            <div id="chatMessages" style="flex:1; overflow-y:auto; margin-bottom: 20px;">
-                <!-- Suas mensagens e painel de chat aqui -->
+            <div id="listaUsuariosContainer" class="lista-usuarios-grid">
+                <!-- Os usuários cadastrados aparecem aqui em tempo real -->
             </div>
         </div>
     </div>
 
     <script>
+        const socket = io();
+        let currentUser = null;
+
         function togglePerfil() {
             const sidebar = document.getElementById('sidebarPerfil');
             sidebar.classList.toggle('recolhido');
         }
 
-        // Função para atualizar o status do usuário na lista global e na sessão
-        function atualizarStatusGlobal(status) {
-            const userStr = localStorage.getItem('chat_user');
-            if(userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    user.status = status;
-                    localStorage.setItem('chat_user', JSON.stringify(user));
-
-                    // Atualiza também na lista geral de usuários cadastrados para o painel admin
-                    let listaUsuarios = JSON.parse(localStorage.getItem('lista_usuarios') || '[]');
-                    const index = listaUsuarios.findIndex(u => u.nome === user.nome || u.id === user.id);
-                    if(index !== -1) {
-                        listaUsuarios[index].status = status;
-                    } else {
-                        listaUsuarios.push(user);
-                    }
-                    localStorage.setItem('lista_usuarios', JSON.stringify(listaUsuarios));
-                } catch(e) {}
-            }
-        }
-
-        // Reconhecimento automático de dispositivo móvel e marcação como Online
         window.addEventListener('DOMContentLoaded', () => {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-            const sidebar = document.getElementById('sidebarPerfil');
-            
             if (isMobile) {
-                sidebar.classList.add('recolhido'); // Inicia recolhido no celular estilo app
-            } else {
-                sidebar.classList.remove('recolhido'); // No PC abre expandido
+                document.getElementById('sidebarPerfil').classList.add('recolhido');
             }
 
-            // Marcar automaticamente como online ao entrar no chat
-            atualizarStatusGlobal('online');
-
-            // Carregar dados salvos do usuário
             const userStr = localStorage.getItem('chat_user');
             if(userStr) {
                 try {
-                    const user = JSON.parse(userStr);
-                    if(user.nome) document.getElementById('welcomeUser').innerText = 'Bem-vindo, ' + user.nome;
-                    if(user.idade) document.getElementById('perfilIdade').innerText = user.idade;
-                    if(user.endereco) document.getElementById('perfilEndereco').innerText = user.endereco;
-                    if(user.cor) document.getElementById('perfilCor').innerText = user.cor;
-                    if(user.alturaPeso) document.getElementById('perfilAlturaPeso').innerText = user.alturaPeso;
-                    if(user.observacao) document.getElementById('perfilObservacao').innerText = user.observacao;
-                    if(user.foto) document.getElementById('perfilFoto').src = user.foto;
+                    currentUser = JSON.parse(userStr);
+                    if(currentUser.nome) document.getElementById('welcomeUser').innerText = 'Bem-vindo, ' + currentUser.nome;
+                    if(currentUser.idade) document.getElementById('perfilIdade').innerText = currentUser.idade;
+                    if(currentUser.endereco) document.getElementById('perfilEndereco').innerText = currentUser.endereco;
+                    if(currentUser.cor) document.getElementById('perfilCor').innerText = currentUser.cor;
+                    if(currentUser.alturaPeso) document.getElementById('perfilAlturaPeso').innerText = currentUser.alturaPeso;
+                    if(currentUser.observacao) document.getElementById('perfilObservacao').innerText = currentUser.observacao;
+                    if(currentUser.foto) document.getElementById('perfilFoto').src = currentUser.foto;
+
+                    socket.emit('user_connected_chat', currentUser);
                 } catch(e) {}
             }
+
+            socket.emit('get_initial_config');
         });
 
-        // Marcar como offline ao fechar a aba ou navegador
-        window.addEventListener('beforeunload', () => {
-            atualizarStatusGlobal('offline');
+        // Ouve atualizações de usuários cadastrados e conectados em tempo real
+        socket.on('update_users_list', (usersList) => {
+            renderizarUsuarios(usersList);
         });
 
-        // Função para alterar a foto chamando a galeria do celular
+        function renderizarUsuarios(usersList) {
+            const container = document.getElementById('listaUsuariosContainer');
+            container.innerHTML = '';
+
+            if(!usersList || usersList.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8;">Nenhum usuário cadastrado no momento.</p>';
+                return;
+            }
+
+            usersList.forEach(u => {
+                // Opcional: não exibir a si mesmo na lista de contatos
+                if (currentUser && u.nome.toLowerCase() === currentUser.nome.toLowerCase()) return;
+
+                const card = document.createElement('div');
+                card.className = 'user-card';
+
+                const fotoPerfil = u.foto && u.foto !== '' ? u.foto : 'https://via.placeholder.com/150?text=Sem+Foto';
+                const isOnline = u.isOnline || u.status === 'online';
+                const statusClass = isOnline ? 'status-dot online' : 'status-dot';
+
+                card.innerHTML = `
+                    <div class="user-info-left">
+                        <img src="${fotoPerfil}" class="user-avatar" alt="Foto">
+                        <span class="${statusClass}" title="${isOnline ? 'Online' : 'Offline'}"></span>
+                        <span class="user-name">${u.nome}</span>
+                    </div>
+                    <button class="btn-conversar" onclick="abrirChat('${u.id || ''}', '${u.nome}')">💬 Conversar</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function abrirChat(targetSocketId, targetName) {
+            alert('Abrindo chat privado com ' + targetName);
+            // Aqui você pode direcionar para a tela de chat privado ou abrir sua modal de mensagens
+        }
+
         function atualizarFotoPerfil(event) {
             const file = event.target.files[0];
             if (file) {
@@ -291,30 +336,20 @@
                     const base64Image = e.target.result;
                     document.getElementById('perfilFoto').src = base64Image;
                     
-                    // Salvar alteração no localStorage e atualizar status online
-                    const userStr = localStorage.getItem('chat_user');
-                    if(userStr) {
-                        try {
-                            const user = JSON.parse(userStr);
-                            user.foto = base64Image;
-                            user.status = 'online';
-                            localStorage.setItem('chat_user', JSON.stringify(user));
-                            atualizarStatusGlobal('online');
-                        } catch(err) {}
+                    if(currentUser) {
+                        currentUser.foto = base64Image;
+                        localStorage.setItem('chat_user', JSON.stringify(currentUser));
+                        socket.emit('update_photo', base64Image);
                     }
                 };
                 reader.readAsDataURL(file);
             }
         }
 
-        function limparConversa() {
-            if(confirm('Deseja realmente limpar a conversa?')) {
-                document.getElementById('chatMessages').innerHTML = '';
-            }
-        }
-
         function sair() {
-            atualizarStatusGlobal('offline');
+            if(currentUser) {
+                socket.emit('user_logout', currentUser.nome);
+            }
             localStorage.removeItem('chat_user');
             window.location.href = 'index.html';
         }
