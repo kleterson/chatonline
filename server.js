@@ -73,12 +73,19 @@ io.on('connection', (socket) => {
 
         let activeUser = users.find(u => u.nome.toLowerCase() === userData.nome.toLowerCase());
         if (!activeUser) {
-            activeUser = { ...userData, id: socket.id, status: 'ativo' };
+            activeUser = { ...userData, id: socket.id, status: 'online' };
             users.push(activeUser);
         } else {
             activeUser.id = socket.id;
-            activeUser.status = 'ativo';
+            activeUser.status = 'online';
         }
+        
+        // Atualiza também na lista de registrados
+        const regUser = registeredUsers.find(u => u.nome.toLowerCase() === userData.nome.toLowerCase());
+        if (regUser) {
+            regUser.status = 'online';
+        }
+
         updateGlobalData();
     });
 
@@ -89,6 +96,7 @@ io.on('connection', (socket) => {
             return;
         }
 
+        user.status = 'online';
         socket.emit('login_success', user);
         updateGlobalData();
     });
@@ -127,26 +135,39 @@ io.on('connection', (socket) => {
         }
         socket.emit('receive_private_message', msgData);
         
-        // Garante que o log de mensagens seja enviado ao Admin
         updateGlobalData();
     });
 
     socket.on('user_logout', (userName) => {
         if (userName) {
             users = users.filter(u => u.nome.toLowerCase() !== userName.toLowerCase());
+            const regUser = registeredUsers.find(u => u.nome.toLowerCase() === userName.toLowerCase());
+            if (regUser) {
+                regUser.status = 'offline';
+            }
             updateGlobalData();
         }
     });
 
-    // Disconnect não remove o usuário para garantir que ele fique "Online" permanente
     socket.on('disconnect', () => {
         console.log(`Socket desconectado: ${socket.id}`);
+        const activeUser = users.find(u => u.id === socket.id);
+        if (activeUser) {
+            users = users.filter(u => u.id !== socket.id);
+            const regUser = registeredUsers.find(u => u.nome.toLowerCase() === activeUser.nome.toLowerCase());
+            if (regUser) {
+                regUser.status = 'offline';
+            }
+            updateGlobalData();
+        }
     });
 
     socket.on('admin_block_user', (userId) => {
         const user = users.find(u => u.id === userId);
         if (user) {
             user.status = 'bloqueado';
+            const regUser = registeredUsers.find(u => u.nome.toLowerCase() === user.nome.toLowerCase());
+            if (regUser) regUser.status = 'bloqueado';
             io.to(userId).emit('user_blocked');
             updateGlobalData();
         }
