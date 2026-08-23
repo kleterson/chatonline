@@ -101,8 +101,11 @@
     </div>
 
     <div class="chat-monitor">
-        <h3>Monitor de Conversas em Tempo Real</h3>
-        <div class="messages-log" id="messagesLogBox"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">Monitor de Conversas em Tempo Real</h3>
+            <button class="btn-danger" onclick="clearMessages()">🗑️ Limpar Todas as Conversas</button>
+        </div>
+        <div class="messages-log" id="messagesLogBox" style="margin-top: 15px;"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -161,18 +164,28 @@
             // Log de mensagens
             const logBox = document.getElementById('messagesLogBox');
             logBox.innerHTML = '';
-            data.messagesLog.forEach(msg => {
-                const p = document.createElement('p');
-                p.style.margin = '4px 0';
-                p.innerHTML = `<strong>[${msg.time}] ${msg.senderName}:</strong> ${msg.text}`;
-                logBox.appendChild(p);
-            });
+            if (data.messagesLog && data.messagesLog.length > 0) {
+                data.messagesLog.forEach(msg => {
+                    const p = document.createElement('p');
+                    p.style.margin = '4px 0';
+                    p.innerHTML = `<strong>[${msg.time}] ${msg.senderName} ➔ ${msg.targetName || 'Geral'}:</strong> ${msg.text}`;
+                    logBox.appendChild(p);
+                });
+            } else {
+                logBox.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 70px;">Nenhuma mensagem registrada no momento.</p>';
+            }
             logBox.scrollTop = logBox.scrollHeight;
         });
 
         function blockUser(userId) {
             if (confirm('Deseja realmente bloquear este usuário?')) {
                 socket.emit('admin_block_user', userId);
+            }
+        }
+
+        function clearMessages() {
+            if (confirm('Tem certeza que deseja apagar todo o histórico de mensagens de conversas?')) {
+                socket.emit('admin_clear_messages');
             }
         }
     </script>
